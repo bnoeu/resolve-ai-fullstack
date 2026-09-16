@@ -1,0 +1,108 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Perfil {
+  SOLICITANTE
+  GESTOR
+}
+
+enum Prioridade {
+  BAIXA
+  MEDIA
+  ALTA
+}
+
+enum StatusOcorrencia {
+  ABERTA
+  EM_ANALISE
+  EM_ATENDIMENTO
+  RESOLVIDA
+  CANCELADA
+}
+
+model Usuario {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  email     String   @unique
+  senhaHash String   @map("senha_hash")
+  perfil    Perfil   @default(SOLICITANTE)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ocorrenciasSolicitadas Ocorrencia[]      @relation("Solicitante")
+  ocorrenciasResponsavel Ocorrencia[]      @relation("Responsavel")
+  comentarios            Comentario[]
+  historicos             HistoricoStatus[]
+
+  @@map("usuario")
+}
+
+model Ocorrencia {
+  id              Int              @id @default(autoincrement())
+  titulo          String
+  descricao       String
+  categoria       String
+  localizacao     String?
+  imagemUrl       String?          @map("imagem_url")
+  prioridade      Prioridade       @default(MEDIA)
+  status          StatusOcorrencia @default(ABERTA)
+  solucaoAplicada String?          @map("solucao_aplicada")
+  solicitanteId   Int              @map("solicitante_id")
+  responsavelId   Int?             @map("responsavel_id")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  solicitante Usuario           @relation("Solicitante", fields: [solicitanteId], references: [id])
+  responsavel Usuario?          @relation("Responsavel", fields: [responsavelId], references: [id])
+  comentarios Comentario[]
+  historicos  HistoricoStatus[]
+  avaliacao   Avaliacao?
+
+  @@map("ocorrencia")
+}
+
+model Comentario {
+  id           Int      @id @default(autoincrement())
+  ocorrenciaId Int      @map("ocorrencia_id")
+  autorId      Int      @map("autor_id")
+  texto        String
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  ocorrencia Ocorrencia @relation(fields: [ocorrenciaId], references: [id], onDelete: Cascade)
+  autor      Usuario    @relation(fields: [autorId], references: [id])
+
+  @@map("comentario")
+}
+
+model HistoricoStatus {
+  id             Int               @id @default(autoincrement())
+  ocorrenciaId   Int               @map("ocorrencia_id")
+  statusAnterior StatusOcorrencia? @map("status_anterior")
+  statusNovo     StatusOcorrencia  @map("status_novo")
+  usuarioId      Int               @map("usuario_id")
+  observacao     String?
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  ocorrencia Ocorrencia @relation(fields: [ocorrenciaId], references: [id], onDelete: Cascade)
+  usuario    Usuario    @relation(fields: [usuarioId], references: [id])
+
+  @@map("historico_status")
+}
+
+model Avaliacao {
+  id           Int      @id @default(autoincrement())
+  ocorrenciaId Int      @unique @map("ocorrencia_id")
+  nota         Int
+  comentario   String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  ocorrencia Ocorrencia @relation(fields: [ocorrenciaId], references: [id], onDelete: Cascade)
+
+  @@map("avaliacao")
+}
